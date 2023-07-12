@@ -71,4 +71,6 @@ st.dataframe(fnc.restaurant_selector(df, raiting=avg_raiting, max_price=price_ma
                        neightbour=neightbours, district=districts, dine_in=dine_in_option, reservable=reservable,
                         serves_beer=beer_option, serves_wine=wine_option, vegetarian=vegeterian_option, takeout=takeout_option,
                         wheelchair_accessible=wheelchair_available, day=days, time=hour, sorter=None, limit=10))
+
+
     
