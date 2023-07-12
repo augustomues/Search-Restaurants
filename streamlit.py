@@ -20,14 +20,15 @@ st.markdown("<h1 style='text-align: center; color: black; font-size: large'>Let'
 
 df_1 = pd.read_csv('data/barc_restaurants.csv')
 df_2 = pd.read_csv('data/place_details.csv')
+
+for i in df_2.columns[9:]:
+    df_2[i] = df_2[i].apply(lambda x: fnc.converting_times_to_ranges(x))
+
 df = df_1.merge(df_2, how='inner', on='place_id')
 
 distritos = list(df['distritos'].unique())
 barrios = list(df['neightbour'].unique())
 hours = np.arange(1, 25)
-
-for i in df.columns[8:]:
-    df[i] = df[i].apply(lambda x: fnc.converting_times_to_ranges(x))
 
 st.markdown("<h3> Please filter based on your needs.</h3><h6 style='font-size: 12px'>*Bare in mind that not all filters are needed. You can leave some fields empty.</h6>", unsafe_allow_html=True)
 st.markdown("<h3 style='text-align: center'>Let's start by the most important:</h3>", unsafe_allow_html=True)

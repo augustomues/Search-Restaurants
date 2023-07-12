@@ -110,7 +110,7 @@ def restaurant_selector(df, raiting=None, max_price=None, total_reviews=None,
     if serves_wine:
         df = df[df['serves_wine'].isin(serves_wine)]
     if vegetarian:
-        df = df[df['vegetarian'].isin(vegetarian)]
+        df = df[df['vegeterian'].isin(vegetarian)]
     if takeout:
         df = df[df['takeout'].isin(takeout)]
     if wheelchair_accessible:
@@ -132,4 +132,3 @@ def restaurant_selector(df, raiting=None, max_price=None, total_reviews=None,
         pass
 
     return df[['name', 'direction', 'raiting', 'price_level', 'total_reviews', 'neightbour', 'distritos', 'latitud', 'longitud']].head(limit).reset_index(drop=True)
-    
