@@ -114,7 +114,7 @@ def restaurant_selector(df, raiting=None, max_price=None, total_reviews=None,
     if takeout:
         df = df[df['takeout'].isin(takeout)]
     if wheelchair_accessible:
-        df = df[df['wheelchair_accessible'].isin(wheelchair_accessible)]
+        df = df[df['wheel_chair_acc'].isin(wheelchair_accessible)]
     if day != 'Any':
         hours_column = days[day]
         df = df[df[hours_column].apply(lambda x: x != ['Closed'] if isinstance(x, list) else True)]
