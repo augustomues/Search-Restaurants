@@ -13,6 +13,9 @@ from nltk import WordNetLemmatizer
 import stylecloud
 from IPython.display import Image
 from nltk.stem import LancasterStemmer
+import geopandas as gpd
+import folium
+import branca.colormap as cm
 
 #SCRAPPING FUNCTIONS
 payload={}
@@ -368,21 +371,50 @@ def get_food(text):
 def aggregate_ethnicity(lst):
     return list(set([item for sublist in lst for item in sublist]))
 
+def plot_restaurants(df):
+    districts = df.groupby('distritos')['place_id'].count()
+    districts = pd.DataFrame(districts).reset_index()
+    map2 = folium.Map(location=[41.397356, 2.179490], zoom_start=11.4)
+    geojson_data_distr = gpd.GeoDataFrame.from_file('Geojsons/districtes_original.geojson')
+    to_plot = geojson_data_distr.merge(districts, how='inner', left_on='NOM', right_on='distritos')
 
-def count_places_distr(df, rating):
-   df = df[df['raiting'] >= rating]
-   y = df.groupby(by='distritos')['place_id'].count().sort_values(ascending=False)
-   sns.barplot(x=y.index, y=y.values)
-   plt.xticks(rotation=45)
-   plt.xlabel('Districts')
-   plt.ylabel('Total Restaurants')
-   plt.title('Total Restaurants by districts')
+    min_count = to_plot['place_id'].min()
+    max_count = to_plot['place_id'].max()
 
-def count_places_barrios(df, district, rating):
-   df = df[(df['raiting'] >= rating) & (df['distritos'] == district)]
-   y = df.groupby(by='neightbour')['place_id'].count().sort_values(ascending=False)
-   sns.barplot(x=y.index, y=y.values)
-   plt.xticks(rotation=90)
-   plt.xlabel('Neightbours')
-   plt.ylabel('Total Restaurants')
-   plt.title('Total Restaurants by neightbours');
+# Define the color gradient
+    color_map = cm.LinearColormap(
+    colors=['#A6C6E4', '#00204C'],  # Dark blue to light blue gradient
+    vmin=min_count,
+    vmax=max_count
+)
+    folium.GeoJson(to_plot, style_function=lambda feature: {
+        'fillColor': color_map(feature['properties']['place_id']),
+        'color': 'black',
+        'weight': 1,
+        'fillOpacity': 0.8
+    }).add_to(map2)
+    to_plot['centroid'] = to_plot.centroid
+    for i in to_plot.index:
+            districtes = folium.Marker(location = [to_plot['centroid'][i].y, to_plot['centroid'][i].x], tooltip=str(to_plot['NOM'][i])+"; Total Restaurants: "+ str(to_plot['place_id'][i]))
+            districtes.add_to(map2)
+
+    legend_html = '''
+        <div style="position: fixed;
+                    top: 500px; right: 400px; width: 220px; height: 75px;
+                    border:2px solid grey; z-index:9999;
+                    background-color: white;
+                    font-size:14px;
+                    ">
+            <p style="margin: 5px; text-align:center;">Legend</p>
+            <div style="display: flex; justify-content: space-between; margin: 0 5px;">
+                <div style="width: 50px; height: 20px; background-color:#00204C;"></div>
+                <div style="width: 50px; height: 20px; background-color:#A6C6E4;"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin: 0 5px;">
+                <div style="text-align: center; width: 50px;">Many</div>
+                <div style="text-align: center; width: 50px;">Few</div>
+            </div>
+        </div>
+    '''
+    map2.get_root().html.add_child(folium.Element(legend_html))
+    return map2
