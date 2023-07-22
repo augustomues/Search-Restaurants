@@ -1,10 +1,7 @@
-import datetime
 import numpy as np
 import pandas as pd
 from datetime import datetime
 import time
-import seaborn as sns
-import matplotlib as plt
 import os
 import sqlalchemy as alch
 import requests
@@ -175,6 +172,17 @@ def upload_data_bulky(df, table_name, schema):
 
 
 def convert_time_to_decimal(time_string):
+
+    """Converts a time string in the format 'hh:mmAM' or 'hh:mmPM' to decimal format.
+
+    Args:
+        time_string (str): A time string in the format 'hh:mmAM' or 'hh:mmPM', where 'hh' represents hours
+                           in 12-hour format (01-12), 'mm' represents minutes (00-59), and 'AM' or 'PM'
+                           represents the time period (ante meridiem or post meridiem).
+
+    Returns:
+        float: The time in decimal format, calculated as hours + minutes / 60.0.
+    """
     time_object = datetime.strptime(time_string, "%I:%M%p")
     hour = time_object.hour
     minute = time_object.minute
@@ -186,6 +194,20 @@ def convert_time_to_decimal(time_string):
 
 
 def spliting_times(my_range):
+    """Splits a time range string and returns an array of time values in decimal format.
+
+    The function takes a time range string in the format 'start_time–end_time' and converts both
+    the start and end times to decimal format. It handles AM/PM time formats and concatenates the
+    time ranges if the end time is earlier than the start time (indicating the range crosses midnight).
+
+    Args:
+        my_range (str): A time range string in the format 'start_time–end_time', where 'start_time' and
+                        'end_time' are in the format 'hh:mmAM' or 'hh:mmPM'.
+
+    Returns:
+        numpy.ndarray: An array of time values in decimal format representing the time range.
+    """
+
     period_start = my_range.split('–')[0]
     period_finish = my_range.split('–')[1]
     if period_start[-2:] == 'AM' or period_start[-2:] == 'PM':
@@ -204,10 +226,21 @@ def spliting_times(my_range):
         range = np.arange(period_start, period_finish, 0.25)
     return range
 
-
-
-
 def converting_times_to_ranges(row):
+    """Converts a string containing multiple time ranges to an array of time values in decimal format.
+
+    The function takes a comma-separated string containing multiple time ranges and converts each range to
+    an array of time values in decimal format using the `spliting_times` function. If the input 'row' is None,
+    the function returns numpy.nan. If the input 'row' is 'Closed', the function returns ['Closed'] to represent
+    the business being closed. If there are any issues parsing the input string, the function returns ['Issue'].
+
+    Args:
+        row (str): A comma-separated string containing multiple time ranges in the format 'start1–end1, start2–end2, ...'.
+
+    Returns:
+        numpy.ndarray: An array of time values in decimal format representing the combined time ranges,
+                       or ['Closed'] if the business is closed, or ['Issue'] if there are parsing issues.
+    """
     if row == None:
         return np.nan
 
@@ -222,14 +255,14 @@ def converting_times_to_ranges(row):
             return ['Issue']
        
 
-        try:
+        try: #In case we have >1 time range, such as: 9:00AM-2:00PM, 8PM-11PM. We will be managing the second range here.
             period_2 = row.split(",")[1].strip()
             hours_opened_2 = spliting_times(period_2)
             hours_opened = np.concatenate((hours_opened, hours_opened_2))
         except IndexError:
             pass
         
-        try:
+        try: #Same as above, but in case we have a third range.
             period_3 = row.split(",")[2].strip()
             hours_opened_3 = spliting_times(period_3)
             hours_opened = np.concatenate((hours_opened, hours_opened_3))
@@ -241,10 +274,45 @@ def converting_times_to_ranges(row):
 
 
 
-def restaurant_selector(df, raiting=None, max_price=None, total_reviews=None,
+def restaurant_selector(df, raiting=None, max_price=None, total_reviews=None,    
                        neightbour=None, district=None, type_of_food=None, dine_in=['Yes'], reservable=None,
                         serves_beer=None, serves_wine=None, vegetarian=None, takeout=None,
                         wheelchair_accessible=None, day='Any', time=None, sorter=None, limit=10):
+    """
+    Selects and filters restaurants from a DataFrame based on various criteria.
+
+    This function filters a DataFrame containing restaurant data based on user-specified criteria such as minimum rating,
+    maximum price level, total reviews count, neighborhood, district, type of food served, dine-in availability,
+    reservation availability, beverage services, vegetarian options, takeout availability, wheelchair accessibility,
+    operating day, operating hour, and sorting options.
+
+    Args:
+        df (pandas.DataFrame): The DataFrame containing restaurant data.
+        raiting (float, optional): The minimum rating required for a restaurant to be selected.
+        max_price (int, optional): The maximum price level allowed for a restaurant to be selected.
+        total_reviews (int, optional): The minimum total reviews count required for a restaurant to be selected.
+        neightbour (list, optional): A list of neighborhood names. Only restaurants in these neighborhoods will be selected.
+        district (list, optional): A list of district names. Only restaurants in these districts will be selected.
+        type_of_food (list, optional): A list of food types. Only restaurants serving these types of food will be selected.
+        dine_in (list, optional): A list of options ['Yes', 'No'].
+        reservable (list, optional): A list of options ['Yes', 'No']. 
+        serves_beer (list, optional): A list of options ['Yes', 'No'].
+        serves_wine (list, optional): A list of options ['Yes', 'No'].
+        vegetarian (list, optional): A list of options ['Yes', 'No'].
+        takeout (list, optional): A list of options ['Yes', 'No']. 
+        wheelchair_accessible (list, optional): A list of options ['Yes', 'No'].
+        day (str, optional): The operating day. Can be 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', or 'Any'.
+        time (str, optional): The operating time in 24-hour format ('hh:mm'). Requires 'day' parameter to be specified.
+        sorter (list, optional): A list of sorting options. Can include 'total_reviews', 'raiting', and 'price_level'.
+                                 The restaurants will be sorted based on these criteria in the specified order.
+                                 By default, sorting is performed in descending order for 'total_reviews' and 'raiting',
+                                 and ascending order for 'price_level'.
+        limit (int, optional): The maximum number of restaurants to return after filtering and sorting.
+
+    Returns:
+        pandas.DataFrame: A DataFrame containing the selected and filtered restaurant data with the specified sorting and limit.
+                          If no restaurants meet the specified criteria, an empty DataFrame is returned.
+    """
 
     days = {'Monday': 'mon_hours'
             ,'Tuesday': 'tue_hours'
@@ -304,6 +372,18 @@ def restaurant_selector(df, raiting=None, max_price=None, total_reviews=None,
     return df.head(limit).reset_index(drop=True)
 
 def get_words(text):
+    """Extracts and lemmatizes adjectives and verbs from a given text.
+
+    The function takes a text string as input, performs part-of-speech tagging using TextBlob,
+    and extracts adjectives and verbs (base and conjugated forms) from the text. It then lemmatizes
+    the extracted words using the WordNetLemmatizer to obtain their base form.
+
+    Args:
+        text (str): The input text to extract adjectives and verbs from.
+
+    Returns:
+        list: A list of lemmatized adjectives and verbs (base forms) found in the text.
+    """
     lemmatizer = WordNetLemmatizer()
     my_list = []
     blob = TextBlob(str(text))
@@ -320,6 +400,22 @@ def get_words(text):
     return my_list
 
 def word_cloud(df, raiting):
+    """Generates a word cloud of adjectives from the given DataFrame for a specific rating.
+
+    The function filters the DataFrame to select rows with the specified 'raiting' (rating) value.
+    It then concatenates all the adjectives from the 'adjectives' column for the selected rows.
+    Using the stylecloud library, it generates a word cloud based on the concatenated adjectives,
+    and saves the word cloud as an image in the 'Figures' directory with a filename based on the
+    rating value.
+
+    Args:
+        df (pandas.DataFrame): The DataFrame containing restaurant data, including an 'adjectives'
+                               column that holds lists of adjectives for each restaurant.
+        raiting (float): The rating value for which the word cloud should be generated.
+
+    Returns:
+        PIL.Image.Image: The generated word cloud image as a PIL Image object.
+    """
     my_str = ''
     for i in df[(df['reviews_rating'] == raiting)]['adjectives']:
         for j in i:
@@ -333,6 +429,24 @@ def word_cloud(df, raiting):
     return Image(filename=f'Figures/2. words_{raiting}.png')
 
 def get_food(text):
+    """Identifies related cuisines based on keywords in the input text.
+
+    The function takes a text string as input and identifies related cuisines based on the presence of specific
+    keywords associated with each cuisine. It matches the keywords against the input text (case-insensitive)
+    and returns a list of cuisines that have keywords present in the text.
+
+    Args:
+        text (str): The input text in which the function searches for keywords related to cuisines.
+
+    Returns:
+        list: A list of cuisine names that have keywords present in the input text. If no keywords are found,
+              an empty list is returned.
+
+    Note:
+        The function uses a predefined dictionary `related_dishes` that associates cuisine names with their
+        corresponding keywords. Any matching of keywords in the input text with those in the dictionary will
+        result in the identification of the respective cuisine.
+    """
     related_dishes = {
     'Italian': ['Italy', 'Italian', 'Pasta', 'Pizza', 'Carbonara', 'Lasagna', 'Tiramisu'],
     'Japanese': ['Japan', 'Japanese', 'Sushi', 'Ramen', 'Tempura', 'Sashimi', 'Matcha'],
@@ -369,9 +483,38 @@ def get_food(text):
     return matching_keys
 
 def aggregate_ethnicity(lst):
+    """Aggregates a list of lists into a single list, removing duplicates.
+
+    The function takes a list of lists as input and aggregates all the elements into a single list,
+    removing any duplicate elements in the process.
+
+    Args:
+        lst (list): A list of lists, where each sublist contains elements of the same type.
+
+    Returns:
+        list: A single list containing all unique elements from the input list of lists.
+    """
     return list(set([item for sublist in lst for item in sublist]))
 
 def plot_restaurants(df):
+    """Generates an interactive Folium map with restaurant distribution data.
+
+    The function takes a DataFrame containing restaurant data, specifically the column 'distritos' representing
+    the districts where each restaurant is located. It groups the restaurants by districts, counts the number
+    of restaurants in each district, and generates an interactive Folium map with district boundaries colored
+    based on the number of restaurants.
+
+    Args:
+        df (pandas.DataFrame): The DataFrame containing restaurant data with a 'distritos' column representing
+                               the districts for each restaurant.
+
+    Returns:
+        folium.Map: An interactive Folium map displaying the distribution of restaurants in different districts.
+
+    Note:
+        The function requires the 'Geojsons/districtes_original.geojson' file to be present. This file contains
+        the geographical data (boundaries) of the districts used for plotting on the map."""
+
     districts = df.groupby('distritos')['place_id'].count()
     districts = pd.DataFrame(districts).reset_index()
     map2 = folium.Map(location=[41.397356, 2.179490], zoom_start=11.4)
